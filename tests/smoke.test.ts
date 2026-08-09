@@ -10,8 +10,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * catches the failures that only appear once Next, the service worker headers,
  * and the Prisma client are wired together.
  *
- * The `/` test needs a reachable database (`npm run db:up`); it is skipped when
- * DATABASE_URL is unset so the rest still runs in a bare checkout.
+ * The page tests need a reachable database (`npm run db:up`). The /health
+ * check runs either way: it asserts against whichever state the endpoint
+ * reports, so a bare checkout still makes a real assertion.
  */
 
 const BOOT_TIMEOUT_MS = 180_000;
@@ -56,7 +57,35 @@ async function waitForServer(url: string, deadline: number): Promise<void> {
   throw new Error(`next dev did not answer within the timeout:\n${bootLog}`);
 }
 
+/**
+ * Next allows one dev server per project directory, so spawning a second one
+ * while `npm run dev` is up just fails. Reuse the running one instead — it
+ * serves the same working tree, which is exactly what these tests check.
+ *
+ * Identified by /health's shape rather than by the port alone, so an unrelated
+ * app on 3000 is not mistaken for this one.
+ */
+async function runningServer(): Promise<string | null> {
+  const candidate = `http://127.0.0.1:${process.env.PORT ?? 3000}`;
+
+  try {
+    const response = await fetch(`${candidate}/health`, {
+      signal: AbortSignal.timeout(3_000),
+    });
+    const body = await response.json();
+    return typeof body?.database === "object" ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
 beforeAll(async () => {
+  const running = await runningServer();
+  if (running) {
+    baseUrl = running;
+    return;
+  }
+
   const port = await freePort();
   baseUrl = `http://127.0.0.1:${port}`;
 
@@ -76,6 +105,7 @@ beforeAll(async () => {
   await waitForServer(baseUrl, Date.now() + BOOT_TIMEOUT_MS);
 }, BOOT_TIMEOUT_MS);
 
+// Only ever kills a server this file started; a reused one is left alone.
 afterAll(() => {
   if (server?.pid && server.exitCode === null) {
     try {
@@ -132,14 +162,42 @@ describe("the app starts and serves its core routes", () => {
     expect(response.headers.get("x-frame-options")).toBe("DENY");
   }, 60_000);
 
-  it.skipIf(!process.env.DATABASE_URL)(
-    "renders the home page through Prisma",
+  it(
+    "reports its database state at /health",
     async () => {
-      const response = await fetch(`${baseUrl}/`);
-      const html = await response.text();
+      const response = await fetch(`${baseUrl}/health`);
+      const body = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(html).toContain("Database connected");
+      expect(response.headers.get("cache-control")).toContain("no-store");
+
+      // Keyed on reachability, not on DATABASE_URL: development falls back to
+      // the local Docker URL, so an unset variable no longer means no database.
+      if (body.database.reachable) {
+        expect(response.status).toBe(200);
+        expect(body.status).toBe("ok");
+        // Counts, not exact numbers: the seed file grows, an empty database is
+        // still the failure worth catching.
+        expect(body.curriculum.tiers).toBeGreaterThan(0);
+        expect(body.curriculum.levels).toBeGreaterThan(0);
+        expect(body.curriculum.words).toBeGreaterThan(0);
+      } else {
+        expect(response.status).toBe(503);
+        expect(body.status).toBe("degraded");
+      }
+    },
+    60_000,
+  );
+
+  it.skipIf(!process.env.DATABASE_URL)(
+    "renders the picker and the viewer through Prisma",
+    async () => {
+      const picker = await fetch(`${baseUrl}/`);
+      expect(picker.status).toBe(200);
+      expect(await picker.text()).toContain("Flashcards");
+
+      // The viewer takes its set from the URL, so a hand-written one must work.
+      const viewer = await fetch(`${baseUrl}/viewer?level=red`);
+      expect(viewer.status).toBe(200);
     },
     60_000,
   );
