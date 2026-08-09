@@ -8,3 +8,106 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+/// Tier → Level → ContentPack → Word, all editable from the admin dashboard.
+/// A content pack is the same mastery level with different words, so a learner
+/// can keep going without repeating vocabulary. Only Freedom levels use them
+/// (dark green ×4, turquoise ×4, indigo ×6).
+///
+/// One concept, three names: `ContentPack` here and in the admin, "pack" in
+/// code, and "Type N" in the learner UI — where N is `ContentPack.position`,
+/// not its id. This is the canonical mapping.
+
+model Tier {
+  id   Int    @id @default(autoincrement())
+  /// Unique so two tiers cannot share a name — the admin has no other handle.
+  name String @unique
+
+  /// Order in the progression.
+  position Int @unique
+
+  /// Admin intent: may this tier's levels be split into packs? A property
+  /// rather than a hard-coded "freedom" check, since tiers are admin-created.
+  hasContentPacks Boolean @default(false)
+
+  levels Level[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tiers")
+}
+
+model Level {
+  id     Int  @id @default(autoincrement())
+  tierId Int
+  tier   Tier @relation(fields: [tierId], references: [id], onDelete: Cascade)
+
+  /// Unique across the curriculum, not just within a tier: two levels called
+  /// "Green" would be indistinguishable in the picker.
+  name   String @unique
+  /// Hex swatch. Required — a level is identified by its colour.
+  colour String
+
+  position Int
+
+  contentPacks ContentPack[]
+  words        Word[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Target for Word's composite foreign key.
+  @@unique([id, tierId])
+  @@unique([tierId, position])
+  @@index([tierId])
+  @@map("levels")
+}
+
+model ContentPack {
+  id      Int   @id @default(autoincrement())
+  levelId Int
+  level   Level @relation(fields: [levelId], references: [id], onDelete: Cascade)
+
+  name     String
+  position Int
+
+  words Word[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Target for Word's composite foreign key.
+  @@unique([id, levelId])
+  @@unique([levelId, position])
+  @@index([levelId])
+  @@map("content_packs")
+}
+
+model Word {
+  id Int @id @default(autoincrement())
+
+  /// Always set; `contentPackId` is null unless the level is packed.
+  levelId Int
+  level   Level @relation(fields: [levelId], references: [id], onDelete: Cascade)
+
+  /// Composite FK on (id, levelId): the database rejects a word whose pack
+  /// belongs to a different level.
+  contentPackId Int?
+  contentPack   ContentPack? @relation(fields: [contentPackId, levelId], references: [id, levelId], onDelete: Cascade)
+
+  hebrew          String
+  english         String
+  transliteration String?
+  note            String?
+
+  /// Order within the pack, or within the level when there is no pack.
+  position Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([levelId])
+  @@index([contentPackId])
+  @@map("words")
+}

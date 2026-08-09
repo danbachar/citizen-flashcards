@@ -1,11 +1,7 @@
 /**
- * Environment resolution, in one place.
- *
- * Local development  → Postgres in Docker (docker-compose.yml)
- * Preview/Production → Neon (set DATABASE_URL in the Vercel dashboard)
- *
- * Vercel sets VERCEL_ENV to "production" | "preview" | "development"; it is
- * absent locally, where NODE_ENV decides instead.
+ * Environment resolution. Local development uses the Docker Postgres,
+ * preview and production use Neon. Vercel sets VERCEL_ENV; locally it is
+ * absent and NODE_ENV decides.
  */
 
 export type DeployEnv = "development" | "preview" | "production";
@@ -15,27 +11,30 @@ export const deployEnv: DeployEnv =
   (process.env.NODE_ENV === "production" ? "production" : "development");
 
 export const isProduction = deployEnv === "production";
-export const isPreview = deployEnv === "preview";
+
+/** Must match docker-compose.yml. */
+export const LOCAL_DATABASE_URL =
+  "postgresql://citizen:citizen@localhost:5432/citizen?schema=public";
 
 /**
- * Runtime connection string. In production this is Neon's *pooled* URL
- * (the one containing `-pooler`); migrations use `DIRECT_URL` instead.
+ * Neon's *pooled* URL in production; migrations use `DIRECT_URL` instead.
+ * Deployed environments must set it — silently falling back to a local database
+ * is worse than failing. Locally it is optional, so a fresh clone runs after
+ * `npm run db:up`.
  */
 export function databaseUrl(): string {
   const url = process.env.DATABASE_URL;
+  if (url) return url;
 
-  if (!url) {
-    throw new Error(
-      deployEnv === "development"
-        ? "DATABASE_URL is not set. Copy .env.example to .env and run `npm run db:up`."
-        : `DATABASE_URL is not set for the ${deployEnv} environment. Add it in Vercel → Settings → Environment Variables.`,
-    );
-  }
+  if (deployEnv === "development") return LOCAL_DATABASE_URL;
 
-  return url;
+  throw new Error(
+    `DATABASE_URL is not set for the ${deployEnv} environment. ` +
+      "Add it in Vercel → Settings → Environment Variables.",
+  );
 }
 
-/** Neon hostnames are self-describing, so the driver choice needs no extra flag. */
+/** Neon hostnames are self-describing, so the driver needs no extra flag. */
 export function isNeonUrl(url: string): boolean {
   try {
     return new URL(url).hostname.endsWith(".neon.tech");

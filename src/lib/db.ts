@@ -4,13 +4,9 @@ import { PrismaClient } from "@/generated/prisma/client";
 import { databaseUrl, deployEnv, isNeonUrl, isProduction } from "@/lib/env";
 
 /**
- * Prisma 7 requires a driver adapter. Which one is decided by the connection
- * string, not by NODE_ENV, so a production build pointed at local Docker (or a
- * preview pointed at Neon) still does the right thing:
- *
- *   *.neon.tech  → @prisma/adapter-neon over Neon's serverless driver, which
- *                  suits short-lived serverless invocations on Vercel.
- *   anything else → @prisma/adapter-pg over node-postgres (local Docker).
+ * Prisma 7 requires a driver adapter, chosen from the connection string rather
+ * than NODE_ENV — so a production build pointed at local Docker, or a preview
+ * pointed at Neon, still does the right thing.
  */
 function createAdapter() {
   const url = databaseUrl();
