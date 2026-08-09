@@ -11,9 +11,15 @@ export function ServiceWorkerRegister() {
     if (process.env.NODE_ENV !== "production") return;
     if (!("serviceWorker" in navigator)) return;
 
+    // A new stamp is a new script URL, so the browser installs a fresh worker.
+    const version = process.env.NEXT_PUBLIC_SW_VERSION ?? "dev";
+
     const register = () => {
       navigator.serviceWorker
-        .register("/sw.js", { scope: "/", updateViaCache: "none" })
+        .register(`/sw.js?v=${encodeURIComponent(version)}`, {
+          scope: "/",
+          updateViaCache: "none",
+        })
         .catch(() => {
           // Registration failing is not fatal — the app still works online.
         });
