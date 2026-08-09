@@ -25,7 +25,7 @@ string, and an empty database seeds itself on first boot.
 ## Key decisions
 
 **The taxonomy is data, not code.** Tiers, levels, and packs are rows, not
-enums. Adding a tier or a colour is an admin action, never a migration. The one
+enums. Adding a tier or a colour is an admin action, never a code change. The one
 place this is visible: `Tier.hasContentPacks` records whether a tier is *allowed*
 to split its levels into packs, so nothing anywhere tests for the string
 `"freedom"`. The learner UI goes one step further and keys off the packs a level
@@ -52,11 +52,7 @@ column is `NOT NULL` rather than nullable-with-a-fallback.
 server instance, before the first request. A fresh Neon branch or a teammate's
 Docker comes up with content instead of blank screens. It is all-or-nothing —
 any existing content and it does nothing — because once the admin owns the data,
-a partial re-seed would fight it. Concurrent boots are serialised with a
-Postgres advisory lock — an application-defined lock on an arbitrary number,
-held for the transaction, that a second instance blocks on until the first
-commits. Without it, two instances starting together would both find an empty
-database and both insert, since words have no unique constraint to collide on.
+a partial re-seed would fight it.
 
 ## Schema
 
@@ -129,7 +125,6 @@ is my problem — hence `tests/service-worker.test.ts`.
 
 ```
 prisma/schema.prisma        Data model (Prisma 7)
-prisma/migrations/          Applied on every deploy by the build
 data/seed.ts                Vocabulary, tier → level → content set
 
 src/lib/env.ts              Environment + connection-string resolution
@@ -145,7 +140,6 @@ src/app/admin/              Curriculum editor
 src/app/health/             JSON status endpoint
 
 src/components/flashcards/  Picker, card, viewer
-src/components/motion/      FlipCard (CSS 3D), DirectionalTransition (view transitions)
 src/hooks/                  useStoredSelection — the remembered picker state
 src/app/globals.css         Design tokens
 public/sw.js                Service worker (hand-written)
@@ -162,10 +156,9 @@ not from `NODE_ENV` — any `*.neon.tech` URL uses Neon's serverless driver,
 anything else uses node-postgres. So a production build pointed at local Docker
 still works, and previews on Neon get the right driver with no extra flag.
 
-In production two URLs are used: `DATABASE_URL` is Neon's **pooled** string, used
-by the app; `DIRECT_URL` is the **direct** one, used only by the Prisma CLI,
-because migrations must not run through a pooler. Both are read at build time —
-`npm run build` runs `prisma migrate deploy` before `next build`.
+In production two URLs are used: `DATABASE_URL` is Neon's **pooled** string,
+used by the app, and `DIRECT_URL` is the **direct** one, used by the Prisma
+CLI — which must not go through a pooler. Both are read at build time.
 
 Set `ADMIN_PASSWORD` in Vercel, or `/admin` will 404 there.
 
