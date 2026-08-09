@@ -1,22 +1,28 @@
+import { FlashcardPicker } from "@/components/flashcards/picker";
 import { Container } from "@/components/layout/container";
 import { Section } from "@/components/layout/section";
-import { db } from "@/lib/db";
+import { DirectionalTransition } from "@/components/motion/directional-transition";
+import { loadDeck } from "@/lib/flashcard-query";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  // One query, purely to prove the Postgres → Prisma → render path works.
-  // There are no models yet, so this goes straight to the driver.
-  await db.$queryRaw`SELECT 1`;
+  const { curriculum, cards } = await loadDeck();
 
   return (
-    <Section spacing="regular">
-      <Container width="content">
-        <h1 className="text-3xl font-medium">Citizen Café</h1>
-        <p className="text-muted-foreground mt-3 text-sm tabular-nums">
-          Database connected.
-        </p>
-      </Container>
-    </Section>
+    <DirectionalTransition>
+      <Section spacing="regular">
+        <Container width="page" className="flex flex-col gap-10">
+          <header className="max-w-content">
+            <h1 className="text-4xl md:text-5xl">Flashcards</h1>
+            <p className="mt-3 text-muted-foreground">
+              Choose a tier, then a level. Tap a card to turn it over.
+            </p>
+          </header>
+
+          <FlashcardPicker curriculum={curriculum} cards={cards} />
+        </Container>
+      </Section>
+    </DirectionalTransition>
   );
 }
