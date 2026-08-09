@@ -25,7 +25,7 @@ string, and an empty database seeds itself on first boot.
 ## Key decisions
 
 **The taxonomy is data, not code.** Tiers, levels, and packs are rows, not
-enums. Adding a tier or a colour is an admin action, never a code change. The one
+enums. Adding a tier or a colour is an admin action. The one
 place this is visible: `Tier.hasContentPacks` records whether a tier is *allowed*
 to split its levels into packs, so nothing anywhere tests for the string
 `"freedom"`. The learner UI goes one step further and keys off the packs a level
@@ -89,12 +89,7 @@ The admin dashboard is the honest consequence of "the taxonomy is data" — that
 claim is empty if there's no way to edit it — but it is more than was asked for,
 and if I had to cut one thing to fit the brief, it would go first.
 
-**The admin gate is not authentication.** A shared password from
-`ADMIN_PASSWORD` exchanged for an httpOnly cookie. No accounts, no roles, no
-audit trail. It exists so the dashboard is never reachable unauthenticated on a
-deployed URL, and it fails closed: with no password set, `/admin` is open locally
-and returns 404 everywhere else. It should be replaced before a second person
-needs access.
+**The admin gate is not authentication.** A shared password from `ADMIN_PASSWORD` ("admin") exchanged for an httpOnly cookie. 
 
 **Startup seeding couples boot to the database.** It buys a working preview
 branch with no manual step; it costs one `count` query per cold start, and it
@@ -112,11 +107,12 @@ is my problem — hence `tests/service-worker.test.ts`.
 
 ## With more time
 
-- Real auth for `/admin`, with accounts and an audit trail.
-- Per-learner progress: which cards have been seen, spaced repetition over the
-  `Word` rows rather than a fresh shuffle each session.
+- Real authentication using JWT: `/admin` for a real admin dashboard, allowing to keep track of user progress, as well as student accounts to track personal progress: which cards have been seen, spaced repetition over the `Word` rows rather than a fresh shuffle each session, login using Redis
+- Load balancing and multi-zone deployments using k8s
+- Agentic learning: suggest new words based on individual user progress
+- Book teacher sessions
 - Reorder-by-drag in the admin instead of typing position numbers.
-- CI running `lint`, `tsc`, and the tests on every push.
+- CI/CD pipeline running `lint`, `tsc`, and the tests on every push.
 - Precache the offline shell's stylesheet — today a first visit that goes offline
   before loading any styled page gets the fallback unstyled.
 - Audio for each word, which is the obvious next column on `Word`.
