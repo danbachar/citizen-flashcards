@@ -1,7 +1,6 @@
 -- CreateTable
 CREATE TABLE "tiers" (
-    "id" TEXT NOT NULL,
-    "slug" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "position" INTEGER NOT NULL,
     "hasContentPacks" BOOLEAN NOT NULL DEFAULT false,
@@ -13,11 +12,10 @@ CREATE TABLE "tiers" (
 
 -- CreateTable
 CREATE TABLE "levels" (
-    "id" TEXT NOT NULL,
-    "tierId" TEXT NOT NULL,
-    "slug" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tierId" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
-    "colour" TEXT,
+    "colour" TEXT NOT NULL,
     "position" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -27,8 +25,8 @@ CREATE TABLE "levels" (
 
 -- CreateTable
 CREATE TABLE "content_packs" (
-    "id" TEXT NOT NULL,
-    "levelId" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
+    "levelId" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
     "position" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -39,9 +37,9 @@ CREATE TABLE "content_packs" (
 
 -- CreateTable
 CREATE TABLE "words" (
-    "id" TEXT NOT NULL,
-    "levelId" TEXT NOT NULL,
-    "contentPackId" TEXT,
+    "id" SERIAL NOT NULL,
+    "levelId" INTEGER NOT NULL,
+    "contentPackId" INTEGER,
     "hebrew" TEXT NOT NULL,
     "english" TEXT NOT NULL,
     "transliteration" TEXT,
@@ -54,13 +52,13 @@ CREATE TABLE "words" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "tiers_slug_key" ON "tiers"("slug");
+CREATE UNIQUE INDEX "tiers_name_key" ON "tiers"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "tiers_position_key" ON "tiers"("position");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "levels_slug_key" ON "levels"("slug");
+CREATE UNIQUE INDEX "levels_name_key" ON "levels"("name");
 
 -- CreateIndex
 CREATE INDEX "levels_tierId_idx" ON "levels"("tierId");
